@@ -2,21 +2,42 @@ local auto_undo_enabled = CreateClientConVar("auto_undo_enabled", "1", true, tru
 local auto_undo_fire_time = CreateClientConVar("auto_undo_fire_time", "0.75", true, true, "How long undo needs to be pressed before triggering auto-undo (in seconds)", 0.1, 5)
 local auto_undo_interval = CreateClientConVar("auto_undo_interval", "0.05", true, true, "Delay between undo repeats (in seconds)", 0.1, 1)
 
+local Active = auto_undo_enabled:GetBool()
+local ShouldFire = false
+
+cvars.AddChangeCallback("auto_undo_enabled", function(_, _, New)
+	Active = tobool(New)
+end)
+
 local FireTimer = 0
 local FireIntervalTimer = 0
 
+hook.Add("PlayerButtonDown", "AutoUndo", function(Player, Key) -- PlayerBindPress sucks
+	if not IsFirstTimePredicted() then return end
+	if Player ~= LocalPlayer() then return end
+
+	local Binding = input.LookupKeyBinding(Key)
+
+	if Binding == "undo" or Binding == "gmod_undo" then
+		ShouldFire = true
+	end
+end)
+
+hook.Add("PlayerButtonUp", "AutoUndo", function(Player, Key)
+	if not IsFirstTimePredicted() then return end
+	if Player ~= LocalPlayer() then return end
+
+	local Binding = input.LookupKeyBinding(Key)
+
+	if Binding == "undo" or Binding == "gmod_undo" then
+		ShouldFire = false
+	end
+end)
+
 hook.Add("Think", "AutoUndo", function()
-	if not auto_undo_enabled:GetBool() then return end
+	if not Active then return end
 
-	local UndoBind = input.LookupBinding("undo", true)
-	local GMODUndoBind = input.LookupBinding("gmod_undo", true)
-
-	local UndoKey = UndoBind and input.GetKeyCode(UndoBind) or nil
-	local GMODUndoKey = GMODUndoBind and input.GetKeyCode(GMODUndoBind) or nil
-
-	local IsDown = (UndoKey and input.IsButtonDown(UndoKey) or false) or (GMODUndoKey and input.IsButtonDown(GMODUndoKey) or false)
-
-	if not IsDown then
+	if not ShouldFire then
 		FireTimer = 0
 		FireIntervalTimer = 0
 
